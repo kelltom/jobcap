@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Indeed Job Info Scraper",
+  "version": "1.0",
+  "description": "Extracts job info from Indeed job pages.",
+  "permissions": ["scripting", "activeTab", "clipboardWrite"],
+  "host_permissions": ["https://*.indeed.com/*", "https://*.indeed.ca/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.indeed.com/*", "https://*.indeed.ca/*"],
+      "js": ["content.js"]
+    }
+  ]
+}

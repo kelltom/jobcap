@@ -1,0 +1,143 @@
+function extractJobInfo() {
+  // Try to find the main job section
+  let section = document.querySelector('section#job-full-details') || document;
+
+  // Role
+  let role = "";
+  let h1 = section.querySelector("h1");
+  if (h1 && h1.textContent.trim()) {
+    role = h1.textContent.trim();
+  } else {
+    let h2 = section.querySelector("h2.jobsearch-JobInfoHeader-title");
+    if (h2) {
+      let span = h2.querySelector("span");
+      role = span ? span.textContent.trim() : h2.textContent.trim();
+      role = role.replace(/\s*- job post$/i, "");
+    }
+  }
+
+  // Company
+  let company = "";
+  let div = section.querySelector('div[data-company-name="true"]');
+  if (div) {
+    let span = div.querySelector("span");
+    if (span) company = span.textContent.trim();
+  }
+  if (!company) {
+    let span = section.querySelector("span.companyName");
+    if (span) company = span.textContent.trim();
+  }
+  if (!company) {
+    let container = section.querySelector('[data-testid="inlineHeader-companyName"]');
+    if (container) {
+      let a = container.querySelector("a");
+      if (a) company = a.textContent.trim();
+    }
+  }
+
+  // Location
+  let location = "";
+  let locDiv = section.querySelector('[data-testid="job-location"]');
+  if (locDiv) location = locDiv.textContent.trim();
+  if (!location) {
+    let locSpan = section.querySelector("div.companyLocation");
+    if (locSpan) location = locSpan.textContent.trim();
+  }
+  if (!location) {
+    let desc = section.querySelector("div#jobDescriptionText");
+    if (desc) {
+      let m = desc.textContent.match(/Location:\s*(.+)/);
+      if (m) location = m[1].trim();
+    }
+  }
+  if (location && location.includes(",")) {
+    let parts = location.split(",");
+    if (parts.length >= 2) {
+      location = parts.slice(-2).map(p => p.trim()).join(", ");
+    }
+  }
+
+  // Type
+  let type = "";
+  let jobtypeDiv = section.querySelector("div#salaryInfoAndJobType");
+  if (jobtypeDiv) {
+    jobtypeDiv.querySelectorAll("span").forEach(span => {
+      if (!type && /(Full[- ]?time|Part[- ]?time|Remote|Contract|Temporary|Internship)/i.test(span.textContent)) {
+        type = span.textContent.trim();
+      }
+    });
+  }
+  if (!type) {
+    section.querySelectorAll("button").forEach(btn => {
+      if (!type && /(Full[- ]?time|Part[- ]?time|Remote|Contract|Temporary|Internship)/i.test(btn.textContent)) {
+        type = btn.textContent.trim();
+      }
+    });
+  }
+  if (!type) {
+    let desc = section.querySelector("div#jobDescriptionText");
+    if (desc) {
+      let m = desc.textContent.match(/Job Type:\s*([^\n\r]+)/i);
+      if (m) type = m[1].trim();
+      else {
+        let m2 = desc.textContent.match(/(Full[- ]?time|Part[- ]?time|Remote|Contract|Temporary|Internship)/i);
+        if (m2) type = m2[1];
+      }
+    }
+  }
+  if (type) {
+    type = type.replace(" -", "").replace("-", " ").replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  // Pay
+  let pay = "";
+  let payDiv = section.querySelector("div#salaryInfoAndJobType");
+  if (payDiv) {
+    payDiv.querySelectorAll("span").forEach(span => {
+      if (!pay && /\$\d/.test(span.textContent)) {
+        pay = span.textContent.trim();
+      }
+    });
+  }
+  if (!pay) {
+    section.querySelectorAll("button").forEach(btn => {
+      if (!pay && /\$\d/.test(btn.textContent)) {
+        pay = btn.textContent.trim();
+      }
+    });
+  }
+  if (!pay) {
+    let desc = section.querySelector("div#jobDescriptionText");
+    if (desc) {
+      let m = desc.textContent.match(/Pay:\s*([^\n\r]+)/);
+      if (m) pay = m[1].trim();
+      else {
+        let m2 = desc.textContent.match(/\$[\d,]+(?:\.\d{2})?(?:\s*[-–]\s*\$[\d,]+(?:\.\d{2})?)?/);
+        if (m2) pay = m2[0];
+      }
+    }
+  }
+  if (pay) {
+    pay = pay.replace(/a year|per year|–|—/gi, "-").replace(/\s+/g, " ").trim();
+  }
+
+  return {role, company, location, type, pay};
+}
+
+// Listen for popup requests
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "extract_job_info") {
+    try {
+      const data = extractJobInfo();
+      // If all fields are empty, probably not a job page
+      if (!data.role && !data.company && !data.location && !data.type && !data.pay) {
+        sendResponse({success: false, error: "No job info found on this page."});
+      } else {
+        sendResponse({success: true, data});
+      }
+    } catch (e) {
+      sendResponse({success: false, error: "Error extracting job info."});
+    }
+    return true; // async
+  }
+});
