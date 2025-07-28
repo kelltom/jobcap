@@ -1,10 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Indeed Job Info Scraper",
+  "name": "JobCap - Summarizes Job Ads",
   "version": "1.0",
-  "description": "Extracts job info from Indeed job pages.",
+  "description": "Extracts and summarizes job information from sites like Indeed and LinkedIn.",
   "permissions": ["scripting", "activeTab", "clipboardWrite"],
-  "host_permissions": ["https://*.indeed.com/*", "https://*.indeed.ca/*"],
+  "host_permissions": [
+    "https://*.indeed.com/*",
+    "https://*.indeed.ca/*",
+    "https://www.linkedin.com/jobs/*"
+  ],
   "action": {
     "default_popup": "popup.html"
   },
@@ -13,7 +17,11 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*.indeed.com/*", "https://*.indeed.ca/*"],
+      "matches": [
+        "https://*.indeed.com/*",
+        "https://*.indeed.ca/*",
+        "https://www.linkedin.com/jobs/*"
+      ],
       "js": ["content.js"]
     }
   ]

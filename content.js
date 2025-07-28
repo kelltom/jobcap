@@ -1,24 +1,24 @@
-function extractJobInfo() {
-  // Helper: Try selectors in order, return first non-empty trimmed text
-  function getTextBySelectors(root, selectors) {
-    for (const sel of selectors) {
-      const el = root.querySelector(sel);
-      if (el && el.textContent && el.textContent.trim()) {
-        return el.textContent.trim();
-      }
+
+// --- Shared helpers ---
+function cleanText(text) {
+  return text ? text.replace(/\s+/g, " ").replace(/\s*- job post$/i, "").trim() : "";
+}
+
+function getTextBySelectors(root, selectors) {
+  for (const sel of selectors) {
+    const el = root.querySelector(sel);
+    if (el && el.textContent && el.textContent.trim()) {
+      return el.textContent.trim();
     }
-    return "";
   }
+  return "";
+}
 
-  // Helper: Normalize whitespace and remove trailing label text
-  function cleanText(text) {
-    return text ? text.replace(/\s+/g, " ").replace(/\s*- job post$/i, "").trim() : "";
-  }
-
-  // Main section fallback
+// --- Indeed extractor ---
+function extractIndeedJobInfo() {
   let section = document.querySelector('section#job-full-details') || document;
 
-  // Role: Try h1, h2, fallback to first strong in header
+  // Role
   let role = cleanText(getTextBySelectors(section, [
     "h1",
     "h2.jobsearch-JobInfoHeader-title",
@@ -26,7 +26,6 @@ function extractJobInfo() {
     "h2"
   ]));
   if (!role) {
-    // Fallback: first strong in header
     let header = section.querySelector('.jobsearch-HeaderContainer, .jobsearch-InfoHeaderContainer');
     if (header) {
       let strong = header.querySelector('strong');
@@ -34,7 +33,7 @@ function extractJobInfo() {
     }
   }
 
-  // Company: Try multiple selectors, fallback to anchor in header
+  // Company
   let company = cleanText(getTextBySelectors(section, [
     'div[data-company-name="true"] span',
     'span.companyName',
@@ -44,7 +43,7 @@ function extractJobInfo() {
     'div[data-testid="inlineHeader-companyName"]'
   ]));
 
-  // Office Location: Try multiple selectors, split on bullet/pipe, fallback to job description
+  // Office Location
   let officelocation = "";
   let locText = getTextBySelectors(section, [
     '[data-testid="job-officelocation"]',
@@ -55,19 +54,16 @@ function extractJobInfo() {
     '#jobLocationSectionWrapper'
   ]);
   if (locText) {
-    // Split on bullet, pipe, or dash, take first part
     let locParts = locText.split(/[•\u2022\|\-]/);
     officelocation = cleanText(locParts[0]);
   }
   if (!officelocation) {
-    // Fallback: look for 'Location:' in job description
     let desc = section.querySelector("div#jobDescriptionText");
     if (desc) {
       let m = desc.textContent.match(/Location:\s*([^\n\r]+)/i);
       if (m) officelocation = cleanText(m[1]);
     }
   }
-  // If officelocation contains a comma, prefer last two parts (city, province)
   if (officelocation && officelocation.includes(",")) {
     let parts = officelocation.split(",");
     if (parts.length >= 2) {
@@ -75,7 +71,7 @@ function extractJobInfo() {
     }
   }
 
-  // Job Type: Try salaryInfoAndJobType, buttons, fallback to job description
+  // Job Type
   let jobtype = "";
   let jobtypeText = getTextBySelectors(section, [
     '#salaryInfoAndJobType span',
@@ -85,7 +81,6 @@ function extractJobInfo() {
     jobtype = cleanText(jobtypeText.match(/(Full[- ]?time|Part[- ]?time|Remote|Contract|Temporary|Internship)/i)[0]);
   }
   if (!jobtype) {
-    // Try buttons
     let btns = Array.from(section.querySelectorAll("button"));
     for (let btn of btns) {
       if (/(Full[- ]?time|Part[- ]?time|Remote|Contract|Temporary|Internship)/i.test(btn.textContent)) {
@@ -106,7 +101,7 @@ function extractJobInfo() {
     }
   }
 
-  // Pay: Try salaryInfoAndJobType, buttons, fallback to job description
+  // Pay
   let pay = "";
   let payText = getTextBySelectors(section, [
     '#salaryInfoAndJobType span',
@@ -139,9 +134,8 @@ function extractJobInfo() {
     pay = pay.replace(/a year|per year|–|—/gi, "-").replace(/\s+/g, " ").trim();
   }
 
-  // Work Location: Hybrid, In-person, Remote
+  // Work Location
   let worklocation = "";
-  // Try to find in company location, then fallback to section text
   let workLocText = getTextBySelectors(section, [
     '[data-testid="jobsearch-JobInfoHeader-companyLocation"]',
     '[data-testid="job-officelocation"]',
@@ -163,6 +157,127 @@ function extractJobInfo() {
   }
 
   return {role, company, officelocation, jobtype, worklocation, pay};
+}
+
+// --- LinkedIn extractor ---
+function extractLinkedInJobInfo() {
+  let section = document.querySelector('.jobs-search__job-details--wrapper') || document;
+
+  // Role
+  let role = cleanText(section.querySelector('[aria-label]')?.getAttribute('aria-label') ||
+    getTextBySelectors(section, [
+      '.job-details-jobs-unified-top-card__primary-description-container h1',
+      'h1',
+      'h2',
+    ]));
+
+  // Company
+  let company = cleanText(getTextBySelectors(section, [
+    '.ivm-view-attr__img--centered[alt$="logo"]',
+    '.jobs-unified-top-card__company-name',
+    '.jobs-unified-top-card__subtitle a',
+    '.jobs-unified-top-card__subtitle',
+    'a[href*="/company/"]',
+  ]));
+  if (!company) {
+    let img = section.querySelector('img[alt$="logo"]');
+    if (img && img.alt) {
+      company = cleanText(img.alt.replace(/ logo$/i, ''));
+    }
+  }
+
+  // Office Location
+  let officelocation = '';
+  // Try to get from first .tvm__text element
+  let tvm = section.querySelector('.tvm__text');
+  if (tvm && tvm.textContent && tvm.textContent.trim()) {
+    officelocation = cleanText(tvm.textContent);
+  }
+  // Fallback to previous logic if not found
+  if (!officelocation) {
+    let locText = getTextBySelectors(section, [
+      '.jobs-unified-top-card__bullet',
+      '.jobs-unified-top-card__subtitle',
+      '.jobs-unified-top-card__primary-description-container',
+      '.jobs-unified-top-card__subtitle',
+    ]);
+    if (locText) {
+      let m = locText.match(/([A-Za-z ]+,? [A-Za-z ]+)/);
+      if (m) officelocation = cleanText(m[1]);
+      else officelocation = cleanText(locText);
+    }
+  }
+  if (!officelocation) {
+    // Try to find 'Location:' label in job description
+    let desc = section.querySelector('article.jobs-description__container, .jobs-description__container');
+    if (desc) {
+      // Look for <strong>Location:</strong> or text 'Location:'
+      let strong = desc.querySelector('strong');
+      if (strong && /Location:/i.test(strong.textContent)) {
+        // Try nextSibling text
+        let next = strong.nextSibling;
+        if (next && next.textContent) {
+          // Only take up to first line break, period, or HTML tag
+          let raw = next.textContent.replace(/^[\s:]+/, '');
+          let match = raw.match(/^([^.<\n\r<]+)/);
+          if (match) officelocation = cleanText(match[1]);
+          else officelocation = cleanText(raw.split(/\n|\r|\.|</)[0]);
+        } else {
+          // Fallback: search for 'Location:' in text
+          let m = desc.textContent.match(/Location:\s*([^\n\r.<]+)/i);
+          if (m) officelocation = cleanText(m[1]);
+        }
+      } else {
+        // Fallback: search for 'Location:' in text
+        let m = desc.textContent.match(/Location:\s*([^\n\r.<]+)/i);
+        if (m) officelocation = cleanText(m[1]);
+      }
+    }
+    // Final fallback: any city, province pattern in whole section
+    if (!officelocation) {
+      let m = section.textContent.match(/([A-Za-z ]+,? [A-Za-z ]+)/);
+      if (m) officelocation = cleanText(m[1]);
+    }
+  }
+  // If officelocation contains a comma, prefer last two parts (city, province/state)
+  if (officelocation && officelocation.includes(",")) {
+    let parts = officelocation.split(",");
+    if (parts.length >= 2) {
+      officelocation = parts.slice(-2).map(p => p.trim()).join(", ");
+    }
+  }
+
+  // Work Location
+  let worklocation = '';
+  let wlMatch = section.textContent.match(/(Remote|Hybrid|In[- ]?person)/i);
+  if (wlMatch) worklocation = cleanText(wlMatch[1]);
+
+  // Job Type
+  let jobtype = '';
+  let jtMatch = section.textContent.match(/(Full[- ]?time|Part[- ]?time|Contract|Temporary|Internship)/i);
+  if (jtMatch) jobtype = cleanText(jtMatch[1]);
+
+  // Pay
+  let pay = '';
+  let payMatch = section.textContent.match(/([\w$CA€£]+[\d,.Kk]+\/?[a-zA-Z]*\s*[-–—]\s*[\w$CA€£]+[\d,.Kk]+\/?[a-zA-Z]*)/);
+  if (payMatch) pay = cleanText(payMatch[1]);
+  if (!pay) {
+    let payAlt = section.textContent.match(/([\w$CA€£]+[\d,.Kk]+\/?[a-zA-Z]*)/);
+    if (payAlt) pay = cleanText(payAlt[1]);
+  }
+
+  return { role, company, officelocation, worklocation, jobtype, pay };
+}
+
+function extractJobInfo() {
+  const url = window.location.href;
+  if (/indeed\.com/.test(url)) {
+    return extractIndeedJobInfo();
+  } else if (/linkedin\.com\/jobs/.test(url)) {
+    return extractLinkedInJobInfo();
+  } else {
+    return { role: '', company: '', officelocation: '', jobtype: '', worklocation: '', pay: '' };
+  }
 }
 
 // Listen for popup requests
