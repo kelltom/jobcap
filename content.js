@@ -144,7 +144,25 @@ function extractJobInfo() {
     pay = pay.replace(/a year|per year|–|—/gi, "-").replace(/\s+/g, " ").trim();
   }
 
-  return {role, company, location, type, pay};
+  // Work Type: Hybrid, In-person, Remote
+  let worktype = "";
+  // Try [data-testid="jobsearch-JobInfoHeader-companyLocation"] and look for Hybrid/Remote/In-person
+  let locTestId = section.querySelector('[data-testid="jobsearch-JobInfoHeader-companyLocation"]');
+  if (locTestId) {
+    let text = locTestId.textContent;
+    if (/hybrid/i.test(text)) worktype = "Hybrid";
+    else if (/remote/i.test(text)) worktype = "Remote";
+    else if (/in[- ]?person/i.test(text)) worktype = "In-person";
+  }
+  // Fallback: look for these keywords in the whole section
+  if (!worktype) {
+    let sectionText = section.textContent;
+    if (/hybrid/i.test(sectionText)) worktype = "Hybrid";
+    else if (/remote/i.test(sectionText)) worktype = "Remote";
+    else if (/in[- ]?person/i.test(sectionText)) worktype = "In-person";
+  }
+
+  return {role, company, location, type, worktype, pay};
 }
 
 // Listen for popup requests

@@ -37,13 +37,14 @@ function fillFields(data) {
   document.getElementById('company').textContent = data.company || "Not found";
   document.getElementById('location').textContent = data.location || "Not found";
   document.getElementById('type').textContent = data.type || "Not found";
+  document.getElementById('worktype').textContent = data.worktype || "Not found";
   document.getElementById('pay').textContent = data.pay || "Not found";
   document.getElementById('error').textContent = "";
 }
 
 function showError(msg) {
   document.getElementById('error').textContent = msg;
-  ['role','company','location','type','pay'].forEach(id => {
+  ['role','company','location','type','worktype','pay'].forEach(id => {
     document.getElementById(id).textContent = "";
   });
 }
