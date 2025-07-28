@@ -36,19 +36,19 @@ function extractJobInfo() {
   }
 
   // Location
-  let location = "";
-  // 1. Try [data-testid="job-location"]
-  let locDiv = section.querySelector('[data-testid="job-location"]');
-  if (locDiv) location = locDiv.textContent.trim();
+  let officelocation = "";
+  // 1. Try [data-testid="job-officelocation"]
+  let locDiv = section.querySelector('[data-testid="job-officelocation"]');
+  if (locDiv) officelocation = locDiv.textContent.trim();
 
   // 2. Try div.companyLocation
-  if (!location) {
+  if (!officelocation) {
     let locSpan = section.querySelector("div.companyLocation");
-    if (locSpan) location = locSpan.textContent.trim();
+    if (locSpan) officelocation = locSpan.textContent.trim();
   }
 
   // 3. Try [data-testid="jobsearch-JobInfoHeader-companyLocation"] (Indeed Canada and others)
-  if (!location) {
+  if (!officelocation) {
     let locTestId = section.querySelector('[data-testid="jobsearch-JobInfoHeader-companyLocation"]');
     if (locTestId) {
       // Sometimes the text is like "Edmonton, AB•Hybrid work"; we want only the city/province
@@ -56,60 +56,60 @@ function extractJobInfo() {
       // Split on bullet or other separator, take the first part
       let locParts = locText.split(/[•|\u2022|\|\-]/);
       if (locParts.length > 0) {
-        location = locParts[0].trim();
+        officelocation = locParts[0].trim();
       } else {
-        location = locText;
+        officelocation = locText;
       }
     }
   }
 
   // 4. Try job description fallback
-  if (!location) {
+  if (!officelocation) {
     let desc = section.querySelector("div#jobDescriptionText");
     if (desc) {
       let m = desc.textContent.match(/Location:\s*(.+)/);
-      if (m) location = m[1].trim();
+      if (m) officelocation = m[1].trim();
     }
   }
 
-  // 5. If location contains a comma, prefer last two parts (city, province)
-  if (location && location.includes(",")) {
-    let parts = location.split(",");
+  // 5. If officelocation contains a comma, prefer last two parts (city, province)
+  if (officelocation && officelocation.includes(",")) {
+    let parts = officelocation.split(",");
     if (parts.length >= 2) {
-      location = parts.slice(-2).map(p => p.trim()).join(", ");
+      officelocation = parts.slice(-2).map(p => p.trim()).join(", ");
     }
   }
 
   // Type
-  let type = "";
+  let jobtype = "";
   let jobtypeDiv = section.querySelector("div#salaryInfoAndJobType");
   if (jobtypeDiv) {
     jobtypeDiv.querySelectorAll("span").forEach(span => {
-      if (!type && /(Full[- ]?time|Part[- ]?time|Remote|Contract|Temporary|Internship)/i.test(span.textContent)) {
-        type = span.textContent.trim();
+      if (!jobtype && /(Full[- ]?time|Part[- ]?time|Remote|Contract|Temporary|Internship)/i.test(span.textContent)) {
+        jobtype = span.textContent.trim();
       }
     });
   }
-  if (!type) {
+  if (!jobtype) {
     section.querySelectorAll("button").forEach(btn => {
-      if (!type && /(Full[- ]?time|Part[- ]?time|Remote|Contract|Temporary|Internship)/i.test(btn.textContent)) {
-        type = btn.textContent.trim();
+      if (!jobtype && /(Full[- ]?time|Part[- ]?time|Remote|Contract|Temporary|Internship)/i.test(btn.textContent)) {
+        jobtype = btn.textContent.trim();
       }
     });
   }
-  if (!type) {
+  if (!jobtype) {
     let desc = section.querySelector("div#jobDescriptionText");
     if (desc) {
       let m = desc.textContent.match(/Job Type:\s*([^\n\r]+)/i);
-      if (m) type = m[1].trim();
+      if (m) jobtype = m[1].trim();
       else {
         let m2 = desc.textContent.match(/(Full[- ]?time|Part[- ]?time|Remote|Contract|Temporary|Internship)/i);
-        if (m2) type = m2[1];
+        if (m2) jobtype = m2[1];
       }
     }
   }
-  if (type) {
-    type = type.replace(" -", "").replace("-", " ").replace(/\b\w/g, l => l.toUpperCase());
+  if (jobtype) {
+    jobtype = jobtype.replace(" -", "").replace("-", " ").replace(/\b\w/g, l => l.toUpperCase());
   }
 
   // Pay
@@ -145,24 +145,24 @@ function extractJobInfo() {
   }
 
   // Work Type: Hybrid, In-person, Remote
-  let worktype = "";
+  let worklocation = "";
   // Try [data-testid="jobsearch-JobInfoHeader-companyLocation"] and look for Hybrid/Remote/In-person
   let locTestId = section.querySelector('[data-testid="jobsearch-JobInfoHeader-companyLocation"]');
   if (locTestId) {
     let text = locTestId.textContent;
-    if (/hybrid/i.test(text)) worktype = "Hybrid";
-    else if (/remote/i.test(text)) worktype = "Remote";
-    else if (/in[- ]?person/i.test(text)) worktype = "In-person";
+    if (/hybrid/i.test(text)) worklocation = "Hybrid";
+    else if (/remote/i.test(text)) worklocation = "Remote";
+    else if (/in[- ]?person/i.test(text)) worklocation = "In-person";
   }
   // Fallback: look for these keywords in the whole section
-  if (!worktype) {
+  if (!worklocation) {
     let sectionText = section.textContent;
-    if (/hybrid/i.test(sectionText)) worktype = "Hybrid";
-    else if (/remote/i.test(sectionText)) worktype = "Remote";
-    else if (/in[- ]?person/i.test(sectionText)) worktype = "In-person";
+    if (/hybrid/i.test(sectionText)) worklocation = "Hybrid";
+    else if (/remote/i.test(sectionText)) worklocation = "Remote";
+    else if (/in[- ]?person/i.test(sectionText)) worklocation = "In-person";
   }
 
-  return {role, company, location, type, worktype, pay};
+  return {role, company, officelocation, jobtype, worklocation, pay};
 }
 
 // Listen for popup requests
@@ -171,7 +171,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     try {
       const data = extractJobInfo();
       // If all fields are empty, probably not a job page
-      if (!data.role && !data.company && !data.location && !data.type && !data.pay) {
+      if (!data.role && !data.company && !data.officelocation && !data.jobtype && !data.pay) {
         sendResponse({success: false, error: "No job info found on this page."});
       } else {
         sendResponse({success: true, data});

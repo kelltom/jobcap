@@ -35,16 +35,16 @@ document.addEventListener('DOMContentLoaded', () => {
 function fillFields(data) {
   document.getElementById('role').textContent = data.role || "Not found";
   document.getElementById('company').textContent = data.company || "Not found";
-  document.getElementById('location').textContent = data.location || "Not found";
-  document.getElementById('type').textContent = data.type || "Not found";
-  document.getElementById('worktype').textContent = data.worktype || "Not found";
+  document.getElementById('officelocation').textContent = data.officelocation || "Not found";
+  document.getElementById('jobtype').textContent = data.jobtype || "Not found";
+  document.getElementById('worklocation').textContent = data.worklocation || "Not found";
   document.getElementById('pay').textContent = data.pay || "Not found";
   document.getElementById('error').textContent = "";
 }
 
 function showError(msg) {
   document.getElementById('error').textContent = msg;
-  ['role','company','location','type','worktype','pay'].forEach(id => {
+  ['role','company','officelocation','jobtype','worklocation','pay'].forEach(id => {
     document.getElementById(id).textContent = "";
   });
 }
