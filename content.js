@@ -37,12 +37,33 @@ function extractJobInfo() {
 
   // Location
   let location = "";
+  // 1. Try [data-testid="job-location"]
   let locDiv = section.querySelector('[data-testid="job-location"]');
   if (locDiv) location = locDiv.textContent.trim();
+
+  // 2. Try div.companyLocation
   if (!location) {
     let locSpan = section.querySelector("div.companyLocation");
     if (locSpan) location = locSpan.textContent.trim();
   }
+
+  // 3. Try [data-testid="jobsearch-JobInfoHeader-companyLocation"] (Indeed Canada and others)
+  if (!location) {
+    let locTestId = section.querySelector('[data-testid="jobsearch-JobInfoHeader-companyLocation"]');
+    if (locTestId) {
+      // Sometimes the text is like "Edmonton, AB•Hybrid work"; we want only the city/province
+      let locText = locTestId.textContent.trim();
+      // Split on bullet or other separator, take the first part
+      let locParts = locText.split(/[•|\u2022|\|\-]/);
+      if (locParts.length > 0) {
+        location = locParts[0].trim();
+      } else {
+        location = locText;
+      }
+    }
+  }
+
+  // 4. Try job description fallback
   if (!location) {
     let desc = section.querySelector("div#jobDescriptionText");
     if (desc) {
@@ -50,6 +71,8 @@ function extractJobInfo() {
       if (m) location = m[1].trim();
     }
   }
+
+  // 5. If location contains a comma, prefer last two parts (city, province)
   if (location && location.includes(",")) {
     let parts = location.split(",");
     if (parts.length >= 2) {
