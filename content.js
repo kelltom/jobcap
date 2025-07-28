@@ -259,11 +259,44 @@ function extractLinkedInJobInfo() {
 
   // Pay
   let pay = '';
-  let payMatch = section.textContent.match(/([\w$CA€£]+[\d,.Kk]+\/?[a-zA-Z]*\s*[-–—]\s*[\w$CA€£]+[\d,.Kk]+\/?[a-zA-Z]*)/);
-  if (payMatch) pay = cleanText(payMatch[1]);
+  let fitPrefs = section.querySelector('.job-details-fit-level-preferences');
+  if (fitPrefs) {
+    // Get all text nodes with a dollar sign
+    let walker = document.createTreeWalker(fitPrefs, NodeFilter.SHOW_TEXT, null);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.textContent && /\$\d/.test(node.textContent)) {
+        let candidate = cleanText(node.textContent);
+        if (!/^([A-Z]{0,2}\$|\$)0(\.00)?\b/.test(candidate)) { // Exclude CA$0, $0, etc.
+          pay = candidate;
+          break;
+        }
+      }
+    }
+  }
+  // Fallback to previous logic if not found
   if (!pay) {
-    let payAlt = section.textContent.match(/([\w$CA€£]+[\d,.Kk]+\/?[a-zA-Z]*)/);
-    if (payAlt) pay = cleanText(payAlt[1]);
+    // Only match pay strings that start with a currency symbol or code
+    let payMatches = Array.from(section.textContent.matchAll(/(?:\b|^)([$CA€£]{1,3}\s?\d[\d,.Kk]*\/?[a-zA-Z]*\s*[-–—]\s*[$CA€£]{1,3}\s?\d[\d,.Kk]*\/?[a-zA-Z]*)/g));
+    let found = '';
+    for (let m of payMatches) {
+      let candidate = cleanText(m[1]);
+      if (!/^([A-Z]{0,2}\$|\$)0(\.00)?\b/.test(candidate) && !/premium/i.test(candidate)) {
+        found = candidate;
+        break;
+      }
+    }
+    if (found) pay = found;
+    if (!pay) {
+      let payAltMatches = Array.from(section.textContent.matchAll(/(?:\b|^)([$CA€£]{1,3}\s?\d[\d,.Kk]*\/?[a-zA-Z]*)/g));
+      for (let m of payAltMatches) {
+        let candidate = cleanText(m[1]);
+        if (!/^([A-Z]{0,2}\$|\$)0(\.00)?\b/.test(candidate) && !/premium/i.test(candidate)) {
+          pay = candidate;
+          break;
+        }
+      }
+    }
   }
 
   return { role, company, officelocation, worklocation, jobtype, pay };
